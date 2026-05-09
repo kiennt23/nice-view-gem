@@ -27,20 +27,34 @@ config LV_Z_MEM_POOL_SIZE
 config ZMK_DISPLAY_STATUS_SCREEN_CUSTOM
     imply NICE_VIEW_WIDGET_STATUS
 
+config NICE_VIEW_GEM_CUSTOM_ART
+    bool "Enable custom reactive artwork on central display"
+    default y
+    help
+      Replace the WPM graph with creature-themed artwork that reacts to
+      the active layer and connection status.
+
+config NICE_VIEW_GEM_ART_LAYER_COUNT
+    int "Number of layers with custom artwork"
+    default 4
+    depends on NICE_VIEW_GEM_CUSTOM_ART
+
 config NICE_VIEW_GEM_WPM_FIXED_RANGE
     bool "Enable fixed range for WPM gauge/chart"
     default y
+    depends on !NICE_VIEW_GEM_CUSTOM_ART
 
 config NICE_VIEW_GEM_WPM_FIXED_RANGE_MAX
     int "Fixed range maximum for WPM gauge/chart"
     default 100
+    depends on !NICE_VIEW_GEM_CUSTOM_ART
 
 config NICE_VIEW_GEM_ANIMATION
     bool "Enable animation on peripheral"
     default y
 
 config NICE_VIEW_GEM_ANIMATION_FRAME
-    int "Frame index (out of 16) to use if animation is disabled"
+    int "Frame index to use if animation is disabled"
     default 0
 
 config NICE_VIEW_GEM_ANIMATION_MS
