@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """
-Generate creature-themed 1-bit artwork for nice!view gem.
+Generate clean pixel-art creature for nice!view gem.
+
+A cute round "Mochi" blob monster with solid fills, big shiny eyes,
+and expressive faces. Clean 1-bit pixel art style.
 
 Outputs:
 - assets/peripheral_art/  (6 animation frames, 69x68)
@@ -28,103 +31,268 @@ def ensure_dirs():
 
 
 def new_image(w, h):
-    """Create a white background image."""
-    img = Image.new("1", (w, h), 1)  # 1 = white in Pillow 1-bit mode
-    return img
+    return Image.new("1", (w, h), 1)
 
 
-def draw_creature_face(draw: ImageDraw.Draw, expression: str, size: int = 68):
-    """Draw a creature face with the given expression."""
-    cx, cy = size // 2, size // 2
+def dist_sq(x1, y1, x2, y2):
+    return (x1 - x2) ** 2 + (y1 - y2) ** 2
 
-    # Head outline - round/oval shape
-    head_top = cy - 22
-    head_bottom = cy + 18
-    head_left = cx - 24
-    head_right = cx + 24
-    draw.ellipse([head_left, head_top, head_right, head_bottom], outline=0, width=2)
 
-    # Small ears/antennae
-    draw.line([(cx - 18, head_top + 4), (cx - 26, head_top - 10)], fill=0, width=2)
-    draw.line([(cx + 18, head_top + 4), (cx + 26, head_top - 10)], fill=0, width=2)
-    # Ear tips (little balls)
-    draw.ellipse([cx - 28, head_top - 14, cx - 24, head_top - 10], fill=0)
-    draw.ellipse([cx + 24, head_top - 14, cx + 28, head_top - 10], fill=0)
+def fill_circle(draw, cx, cy, r, fill):
+    for y in range(cy - r - 1, cy + r + 2):
+        for x in range(cx - r - 1, cx + r + 2):
+            if dist_sq(x, y, cx, cy) <= r * r:
+                draw.point((x, y), fill=fill)
 
-    # Eyes based on expression
-    eye_y = cy - 6
-    eye_x_left = cx - 12
-    eye_x_right = cx + 12
-    eye_w, eye_h = 10, 10
 
-    if expression == "neutral":
-        # Round calm eyes
-        draw.ellipse([eye_x_left - eye_w // 2, eye_y - eye_h // 2,
-                      eye_x_left + eye_w // 2, eye_y + eye_h // 2], outline=0, width=2)
-        draw.ellipse([eye_x_right - eye_w // 2, eye_y - eye_h // 2,
-                      eye_x_right + eye_w // 2, eye_y + eye_h // 2], outline=0, width=2)
-        # Small pupils
-        draw.point((eye_x_left, eye_y), fill=0)
-        draw.point((eye_x_right, eye_y), fill=0)
-        # Small calm mouth
-        draw.arc([cx - 8, cy + 4, cx + 8, cy + 12], start=0, end=180, fill=0, width=2)
+def fill_ellipse(draw, cx, cy, rx, ry, fill):
+    for y in range(cy - ry - 1, cy + ry + 2):
+        for x in range(cx - rx - 1, cx + rx + 2):
+            dx, dy = x - cx, y - cy
+            if (dx * dx) / max(rx * rx, 1) + (dy * dy) / max(ry * ry, 1) <= 1.0:
+                draw.point((x, y), fill=fill)
 
-    elif expression == "alert":
-        # Focused/slit eyes
-        draw.ellipse([eye_x_left - eye_w // 2, eye_y - eye_h // 2,
-                      eye_x_left + eye_w // 2, eye_y + eye_h // 2], outline=0, width=2)
-        draw.ellipse([eye_x_right - eye_w // 2, eye_y - eye_h // 2,
-                      eye_x_right + eye_w // 2, eye_y + eye_h // 2], outline=0, width=2)
-        # Horizontal slit pupils
-        draw.line([(eye_x_left - 4, eye_y), (eye_x_left + 4, eye_y)], fill=0, width=2)
-        draw.line([(eye_x_right - 4, eye_y), (eye_x_right + 4, eye_y)], fill=0, width=2)
-        # Firm mouth
-        draw.line([(cx - 6, cy + 10), (cx + 6, cy + 10)], fill=0, width=2)
 
-    elif expression == "surprised":
-        # Wide round eyes
-        draw.ellipse([eye_x_left - eye_w // 2 - 2, eye_y - eye_h // 2 - 2,
-                      eye_x_left + eye_w // 2 + 2, eye_y + eye_h // 2 + 2], outline=0, width=2)
-        draw.ellipse([eye_x_right - eye_w // 2 - 2, eye_y - eye_h // 2 - 2,
-                      eye_x_right + eye_w // 2 + 2, eye_y + eye_h // 2 + 2], outline=0, width=2)
-        # Small pupils
-        draw.point((eye_x_left, eye_y), fill=0)
-        draw.point((eye_x_right, eye_y), fill=0)
-        # Open mouth (small O)
-        draw.ellipse([cx - 4, cy + 6, cx + 4, cy + 14], outline=0, width=2)
+def stroke_ellipse(draw, cx, cy, rx, ry, width, fill):
+    """Draw just the outline of an ellipse."""
+    for y in range(cy - ry - width - 1, cy + ry + width + 2):
+        for x in range(cx - rx - width - 1, cx + rx + width + 2):
+            dx, dy = x - cx, y - cy
+            d = (dx * dx) / max(rx * rx, 1) + (dy * dy) / max(ry * ry, 1)
+            if 0.85 <= d <= 1.15:
+                draw.point((x, y), fill=fill)
 
-    elif expression == "fierce":
-        # Angled angry eyes
-        draw.polygon([(eye_x_left - 6, eye_y + 4), (eye_x_left + 6, eye_y - 2),
-                      (eye_x_left + 4, eye_y + 4)], outline=0, fill=0)
-        draw.polygon([(eye_x_right - 6, eye_y - 2), (eye_x_right + 6, eye_y + 4),
-                      (eye_x_right - 4, eye_y + 4)], outline=0, fill=0)
-        # Fangs / sharp mouth
-        draw.line([(cx - 8, cy + 10), (cx - 4, cy + 14), (cx, cy + 10),
-                   (cx + 4, cy + 14), (cx + 8, cy + 10)], fill=0, width=2)
+
+def draw_line(draw, x1, y1, x2, y2, width, fill):
+    dx, dy = x2 - x1, y2 - y1
+    steps = int(max(abs(dx), abs(dy)) * 2) + 1
+    for i in range(steps):
+        t = i / steps
+        px, py = x1 + dx * t, y1 + dy * t
+        for wy in range(-width // 2, width // 2 + 1):
+            for wx in range(-width // 2, width // 2 + 1):
+                draw.point((int(px + wx), int(py + wy)), fill=fill)
+
+
+def draw_creature_face(draw, expression, size=68):
+    """Draw Mochi — a cute pear-shaped blob with big eyes."""
+    cx, cy = size // 2, size // 2 + 2
+
+    # === BODY ===
+    # Pear shape: wider at bottom, rounder at top
+    # Upper head circle
+    fill_circle(draw, cx, cy - 8, 22, fill=0)
+    # Lower body (slightly wider, shorter)
+    fill_ellipse(draw, cx, cy + 10, 24, 16, fill=0)
+    # Smooth the connection by filling the gap
+    for y in range(cy - 8, cy + 2):
+        for x in range(cx - 22, cx + 23):
+            if dist_sq(x, y, cx, cy - 8) <= 22 * 22 or \
+               ((x - cx) ** 2) / (24 * 24) + ((y - (cy + 10)) ** 2) / (16 * 16) <= 1.0:
+                draw.point((x, y), fill=0)
+
+    # Little feet (black ovals poking out below)
+    fill_ellipse(draw, cx - 14, cy + 24, 6, 4, fill=0)
+    fill_ellipse(draw, cx + 14, cy + 24, 6, 4, fill=0)
+
+    # === EYES (white sclera on black body) ===
+    if expression in ("neutral", "alert", "surprised", "fierce"):
+        eye_y = cy - 6
+        if expression == "surprised":
+            eye_y -= 2
+            eye_r = 11
+        elif expression == "fierce":
+            eye_r = 9
+        else:
+            eye_r = 10
+
+        # Left eye white (cutout in black body)
+        fill_circle(draw, cx - 13, eye_y, eye_r, fill=1)
+        # Right eye white
+        fill_circle(draw, cx + 13, eye_y, eye_r, fill=1)
+
+        # Eyelids for fierce/angry
+        if expression == "fierce":
+            # Angled eyelids (black triangles covering top of eyes)
+            for y in range(eye_y - eye_r - 2, eye_y - 2):
+                for x in range(cx - 22, cx - 4):
+                    dx = x - (cx - 13)
+                    if y < eye_y - 4 + abs(dx) // 3:
+                        draw.point((x, y), fill=0)
+                for x in range(cx + 4, cx + 22):
+                    dx = x - (cx + 13)
+                    if y < eye_y - 4 + abs(dx) // 3:
+                        draw.point((x, y), fill=0)
+
+        # Pupils
+        if expression == "surprised":
+            pr = 3
+        elif expression == "alert":
+            pr = 2
+        else:
+            pr = 4
+
+        fill_circle(draw, cx - 13, eye_y + 1, pr, fill=0)
+        fill_circle(draw, cx + 13, eye_y + 1, pr, fill=0)
+
+        # Highlights (white dots in pupils)
+        if expression != "alert":
+            fill_circle(draw, cx - 15, eye_y - 3, 2, fill=1)
+            fill_circle(draw, cx + 11, eye_y - 3, 2, fill=1)
+            # Tiny secondary highlight
+            draw.point((cx - 11, eye_y + 3), fill=1)
+            draw.point((cx + 15, eye_y + 3), fill=1)
+        else:
+            # Alert: smaller highlights
+            draw.point((cx - 16, eye_y - 4), fill=1)
+            draw.point((cx + 10, eye_y - 4), fill=1)
 
     elif expression == "sleepy":
-        # Closed eyes (curved lines)
-        draw.arc([eye_x_left - 6, eye_y - 4, eye_x_left + 6, eye_y + 4], start=0, end=180, fill=0, width=2)
-        draw.arc([eye_x_right - 6, eye_y - 4, eye_x_right + 6, eye_y + 4], start=0, end=180, fill=0, width=2)
+        eye_y = cy - 6
+        # Closed eyes (curved black lines on white... but body is black)
+        # Instead draw white arcs (sleepy eyelids)
+        for t in range(-10, 11):
+            y_off = abs(t) // 5
+            draw.point((cx - 13 + t, eye_y + y_off), fill=1)
+            draw.point((cx - 13 + t, eye_y + y_off - 1), fill=1)
+            draw.point((cx + 13 + t, eye_y + y_off), fill=1)
+            draw.point((cx + 13 + t, eye_y + y_off - 1), fill=1)
+        # Little lashes
+        draw_line(draw, cx - 20, eye_y + 2, cx - 18, eye_y + 4, 1, fill=1)
+        draw_line(draw, cx + 18, eye_y + 4, cx + 20, eye_y + 2, 1, fill=1)
+
+    # === MOUTH ===
+    if expression == "neutral":
+        # Small smile
+        for t in range(-6, 7):
+            y_off = (t * t) // 10
+            draw.point((cx + t, cy + 10 + y_off), fill=1)
+            draw.point((cx + t, cy + 9 + y_off), fill=1)
+
+    elif expression == "alert":
+        # Firm line
+        draw_line(draw, cx - 5, cy + 10, cx + 5, cy + 10, 2, fill=1)
+
+    elif expression == "surprised":
+        # Open O
+        fill_circle(draw, cx, cy + 12, 4, fill=1)
+        fill_circle(draw, cx, cy + 12, 1, fill=0)
+
+    elif expression == "fierce":
+        # Fangs (W shape in white)
+        pts = [(cx - 7, cy + 8), (cx - 3, cy + 14), (cx, cy + 8),
+               (cx + 3, cy + 14), (cx + 7, cy + 8)]
+        for i in range(len(pts) - 1):
+            draw_line(draw, pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], 2, fill=1)
+
+    elif expression == "sleepy":
         # Tiny mouth
-        draw.arc([cx - 4, cy + 8, cx + 4, cy + 12], start=0, end=180, fill=0, width=1)
-        # Little "zzz" above head
-        draw.line([(cx + 20, head_top - 6), (cx + 24, head_top - 10)], fill=0, width=1)
-        draw.line([(cx + 24, head_top - 10), (cx + 20, head_top - 10)], fill=0, width=1)
-        draw.line([(cx + 20, head_top - 10), (cx + 24, head_top - 14)], fill=0, width=1)
+        for t in range(-2, 3):
+            y_off = (t * t) // 4
+            draw.point((cx + t, cy + 10 + y_off), fill=1)
+        # Snot bubble
+        stroke_ellipse(draw, cx + 8, cy + 8, 5, 5, 1, fill=1)
+        fill_circle(draw, cx + 8, cy + 8, 1, fill=1)
+
+    # === CHEEKS ===
+    if expression in ("neutral", "sleepy"):
+        for bx, by in [(cx - 20, cy + 4), (cx - 19, cy + 5), (cx - 18, cy + 4),
+                        (cx + 18, cy + 4), (cx + 19, cy + 5), (cx + 20, cy + 4)]:
+            draw.point((bx, by), fill=1)
+
+    # === EXTRA DETAILS ===
+    if expression == "alert":
+        # Glasses frames (white outlines around eyes)
+        stroke_ellipse(draw, cx - 13, cy - 6, 12, 12, 1, fill=1)
+        stroke_ellipse(draw, cx + 13, cy - 6, 12, 12, 1, fill=1)
+        draw_line(draw, cx - 1, cy - 6, cx + 1, cy - 6, 1, fill=1)
+
+    elif expression == "surprised":
+        # Raised eyebrows (black lines above eyes)
+        draw_line(draw, cx - 20, cy - 18, cx - 10, cy - 22, 2, fill=0)
+        draw_line(draw, cx + 10, cy - 22, cx + 20, cy - 18, 2, fill=0)
+
+    elif expression == "fierce":
+        # Sweat drop
+        fill_ellipse(draw, cx + 22, cy - 12, 3, 4, fill=0)
+        draw.point((cx + 22, cy - 10), fill=1)
+
+    elif expression == "sleepy":
+        # "Zzz"
+        zx, zy = cx + 22, cy - 22
+        # Big Z
+        draw_line(draw, zx, zy, zx + 5, zy, 1, fill=0)
+        draw_line(draw, zx + 5, zy, zx, zy - 5, 1, fill=0)
+        draw_line(draw, zx, zy - 5, zx + 5, zy - 5, 1, fill=0)
+        # Small Z
+        draw_line(draw, zx + 7, zy - 7, zx + 10, zy - 7, 1, fill=0)
+        draw_line(draw, zx + 10, zy - 7, zx + 7, zy - 10, 1, fill=0)
+        draw_line(draw, zx + 7, zy - 10, zx + 10, zy - 10, 1, fill=0)
+
+
+def draw_peripheral_creature(draw, frame, width=69, height=68):
+    """Small floating full-body creature."""
+    bob = [0, -2, -4, -2, 0, 1][frame]
+    cx, cy = width // 2, height // 2 + 8 + bob
+
+    # Body
+    fill_circle(draw, cx, cy, 15, fill=0)
+
+    # Arms waving
+    arm_off = [(-2, 0), (-4, -2), (-3, -3), (-2, -2), (-2, 0), (-3, 1)][frame]
+    draw_line(draw, cx - 13, cy, cx - 18 + arm_off[0], cy - 5 + arm_off[1], 2, fill=0)
+    draw_line(draw, cx + 13, cy, cx + 18 - arm_off[0], cy - 5 + arm_off[1], 2, fill=0)
+
+    # Eyes (white sclera)
+    eye_y = cy - 4
+    fill_circle(draw, cx - 7, eye_y, 5, fill=1)
+    fill_circle(draw, cx + 7, eye_y, 5, fill=1)
+    # Pupils
+    fill_circle(draw, cx - 7, eye_y + 1, 2, fill=0)
+    fill_circle(draw, cx + 7, eye_y + 1, 2, fill=0)
+    # Highlights
+    fill_circle(draw, cx - 9, eye_y - 2, 1, fill=1)
+    fill_circle(draw, cx + 5, eye_y - 2, 1, fill=1)
+
+    # Smile
+    for t in range(-4, 5):
+        y_off = (t * t) // 6
+        draw.point((cx + t, cy + 5 + y_off), fill=1)
+        draw.point((cx + t, cy + 4 + y_off), fill=1)
+
+    # Cheeks
+    draw.point((cx - 12, cy + 2), fill=1)
+    draw.point((cx - 11, cy + 3), fill=1)
+    draw.point((cx + 11, cy + 3), fill=1)
+    draw.point((cx + 12, cy + 2), fill=1)
+
+    # Sparkles
+    sparkles = [
+        [(12, 14), (56, 20), (34, 10)],
+        [(14, 12), (54, 22), (32, 8)],
+        [(10, 16), (58, 18), (36, 12)],
+        [(12, 14), (56, 20), (34, 10)],
+        [(16, 10), (52, 24), (30, 14)],
+        [(12, 16), (56, 18), (34, 10)],
+    ]
+    for sx, sy in sparkles[frame]:
+        for dx, dy in [(0, 0), (-1, 0), (1, 0), (0, -1), (0, 1)]:
+            draw.point((sx + dx, sy + dy), fill=0)
+
+    # Floating dots
+    for i, (dx, dy) in enumerate([(10, 28), (58, 32), (22, 48), (48, 46)]):
+        if (frame + i * 2) % 3 != 0:
+            draw.point((dx, dy), fill=0)
 
 
 def generate_layer_faces():
-    """Generate creature face images for each layer."""
     expressions = {
-        "layer_art_0": "neutral",      # base layer
-        "layer_art_1": "alert",        # nav layer
-        "layer_art_2": "surprised",    # sym layer
-        "layer_art_3": "fierce",       # game layer
-        "layer_art_default": "sleepy", # fallback
+        "layer_art_0": "neutral",
+        "layer_art_1": "alert",
+        "layer_art_2": "surprised",
+        "layer_art_3": "fierce",
+        "layer_art_default": "sleepy",
     }
-
     for name, expr in expressions.items():
         img = new_image(68, 68)
         draw = ImageDraw.Draw(img)
@@ -134,94 +302,33 @@ def generate_layer_faces():
         print(f"Generated {png_path}")
 
 
-def draw_creature_tail(draw: ImageDraw.Draw, frame: int, width: int = 69, height: int = 68):
-    """Draw a creature tail that waves gently."""
-    # The tail is a curved line with a fluffy tip
-    # It waves left and right across frames
-
-    # Tail base (fixed point at bottom center)
-    base_x = width // 2
-    base_y = height - 10
-
-    # Tail tip position varies by frame
-    # Frame 0: tip left, Frame 3: tip right, Frame 6: back to left
-    phases = [-12, -8, -3, 3, 8, 12]
-    tip_offset = phases[frame % len(phases)]
-
-    tip_x = base_x + tip_offset
-    tip_y = 20
-
-    # Control point for the curve (midpoint, swaying less)
-    ctrl_x = base_x + tip_offset // 2
-    ctrl_y = (base_y + tip_y) // 2
-
-    # Draw tail as a thick bezier-like curve using line segments
-    points = []
-    steps = 12
-    for t in range(steps + 1):
-        t_norm = t / steps
-        # Quadratic bezier
-        x = int((1 - t_norm) ** 2 * base_x + 2 * (1 - t_norm) * t_norm * ctrl_x + t_norm ** 2 * tip_x)
-        y = int((1 - t_norm) ** 2 * base_y + 2 * (1 - t_norm) * t_norm * ctrl_y + t_norm ** 2 * tip_y)
-        points.append((x, y))
-
-    # Draw thick tail
-    for i in range(len(points) - 1):
-        thickness = max(1, 4 - i // 3)
-        draw.line([points[i], points[i + 1]], fill=0, width=thickness)
-
-    # Fluffy tip (small cluster of dots/ovals)
-    draw.ellipse([tip_x - 5, tip_y - 5, tip_x + 5, tip_y + 5], outline=0, width=2)
-    draw.ellipse([tip_x - 3, tip_y - 3, tip_x + 3, tip_y + 3], fill=0)
-
-    # Tiny sparkles around the tail tip
-    sparkle_positions = [
-        (tip_x + 8, tip_y - 4),
-        (tip_x - 6, tip_y + 6),
-        (tip_x + 4, tip_y + 8),
-    ]
-    # Only show some sparkles per frame for subtle twinkle
-    for idx, (sx, sy) in enumerate(sparkle_positions):
-        if (frame + idx) % 2 == 0:
-            draw.point((sx, sy), fill=0)
-            draw.point((sx + 1, sy), fill=0)
-            draw.point((sx, sy + 1), fill=0)
-            draw.point((sx + 1, sy + 1), fill=0)
-
-
 def generate_peripheral_frames():
-    """Generate 6 animation frames of a waving creature tail."""
     for i in range(6):
         img = new_image(69, 68)
         draw = ImageDraw.Draw(img)
-        draw_creature_tail(draw, i, width=69, height=68)
+        draw_peripheral_creature(draw, i, width=69, height=68)
         png_path = ASSETS_DIR / "peripheral_art" / f"peripheral_art_{i:02d}.png"
         img.save(png_path)
         print(f"Generated {png_path}")
 
 
 def convert_all():
-    """Convert all generated PNGs to LVGL C arrays."""
     converter = SCRIPT_DIR / "png_to_lvgl.py"
-
-    # Convert peripheral frames
     for i in range(6):
         png = ASSETS_DIR / "peripheral_art" / f"peripheral_art_{i:02d}.png"
         c_out = ASSETS_DIR / f"peripheral_art_{i:02d}.c"
         subprocess.run([sys.executable, str(converter), str(png), str(c_out),
-                        f"--name", f"peripheral_art_{i:02d}"], check=True)
-
-    # Convert layer faces
+                        "--name", f"peripheral_art_{i:02d}"], check=True)
     for name in ["layer_art_0", "layer_art_1", "layer_art_2", "layer_art_3", "layer_art_default"]:
         png = ASSETS_DIR / "layer_art" / f"{name}.png"
         c_out = ASSETS_DIR / f"{name}.c"
         subprocess.run([sys.executable, str(converter), str(png), str(c_out),
-                        f"--name", name], check=True)
+                        "--name", name], check=True)
 
 
 def main():
     ensure_dirs()
-    print("Generating creature artwork...")
+    print("Generating Mochi creature artwork...")
     generate_layer_faces()
     generate_peripheral_frames()
     print("\nConverting to LVGL C arrays...")
