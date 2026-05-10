@@ -9,21 +9,26 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #include <zmk/events/endpoint_changed.h>
 #include <zmk/events/layer_state_changed.h>
 #include <zmk/events/usb_conn_state_changed.h>
-#include <zmk/events/wpm_state_changed.h>
 #include <zmk/battery.h>
 #include <zmk/ble.h>
 #include <zmk/display.h>
 #include <zmk/endpoints.h>
 #include <zmk/keymap.h>
 #include <zmk/usb.h>
-#include <zmk/wpm.h>
 
 #include "battery.h"
 #include "layer.h"
 #include "output.h"
 #include "profile.h"
 #include "screen.h"
+
+#if IS_ENABLED(CONFIG_NICE_VIEW_GEM_CUSTOM_ART)
+#include "art.h"
+#else
+#include <zmk/events/wpm_state_changed.h>
+#include <zmk/wpm.h>
 #include "wpm.h"
+#endif
 
 static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 
@@ -48,7 +53,11 @@ static void draw_middle(lv_obj_t *widget, const struct status_state *state) {
     fill_background(canvas);
 
     // Draw widgets
+#if IS_ENABLED(CONFIG_NICE_VIEW_GEM_CUSTOM_ART)
+    draw_art_status(canvas, state);
+#else
     draw_wpm_status(canvas, state);
+#endif
 
     // Rotate for horizontal display
     rotate_canvas(canvas);
@@ -78,6 +87,9 @@ static void set_battery_status(struct zmk_widget_screen *widget,
     widget->state.battery = state.level;
 
     draw_top(widget->obj, &widget->state);
+#if IS_ENABLED(CONFIG_NICE_VIEW_GEM_CUSTOM_ART)
+    draw_middle(widget->obj, &widget->state);
+#endif
 }
 
 static void battery_status_update_cb(struct battery_status_state state) {
@@ -113,6 +125,9 @@ static void set_layer_status(struct zmk_widget_screen *widget, struct layer_stat
     widget->state.layer_label = state.label;
 
     draw_bottom(widget->obj, &widget->state);
+#if IS_ENABLED(CONFIG_NICE_VIEW_GEM_CUSTOM_ART)
+    draw_middle(widget->obj, &widget->state);
+#endif
 }
 
 static void layer_status_update_cb(struct layer_status_state state) {
@@ -143,6 +158,9 @@ static void set_output_status(struct zmk_widget_screen *widget,
 
     draw_top(widget->obj, &widget->state);
     draw_bottom(widget->obj, &widget->state);
+#if IS_ENABLED(CONFIG_NICE_VIEW_GEM_CUSTOM_ART)
+    draw_middle(widget->obj, &widget->state);
+#endif
 }
 
 static void output_status_update_cb(struct output_status_state state) {
@@ -170,6 +188,7 @@ ZMK_SUBSCRIPTION(widget_output_status, zmk_usb_conn_state_changed);
 ZMK_SUBSCRIPTION(widget_output_status, zmk_ble_active_profile_changed);
 #endif
 
+#if !IS_ENABLED(CONFIG_NICE_VIEW_GEM_CUSTOM_ART)
 /**
  * WPM status
  **/
@@ -195,6 +214,7 @@ struct wpm_status_state wpm_status_get_state(const zmk_event_t *eh) {
 ZMK_DISPLAY_WIDGET_LISTENER(widget_wpm_status, struct wpm_status_state, wpm_status_update_cb,
                             wpm_status_get_state)
 ZMK_SUBSCRIPTION(widget_wpm_status, zmk_wpm_state_changed);
+#endif
 
 /**
  * Initialization
@@ -222,7 +242,9 @@ int zmk_widget_screen_init(struct zmk_widget_screen *widget, lv_obj_t *parent) {
     widget_battery_status_init();
     widget_layer_status_init();
     widget_output_status_init();
+#if !IS_ENABLED(CONFIG_NICE_VIEW_GEM_CUSTOM_ART)
     widget_wpm_status_init();
+#endif
 
     return 0;
 }
