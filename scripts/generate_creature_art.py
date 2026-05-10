@@ -160,15 +160,19 @@ def generate_peripheral_frames():
         cropped = arr[top:bottom + 1, left:right + 1]
         pil_crop = Image.fromarray(cropped)
 
-        # Remove "+" anchor marker at top-left corner (paint ~14x14 white)
+        # Remove "+" anchor marker at top-left corner (paint ~20x20 white)
         draw = ImageDraw.Draw(pil_crop)
-        draw.rectangle([0, 0, 13, 13], fill=255)
+        draw.rectangle([0, 0, 19, 19], fill=255)
+
+        # Resize to fit in 68x68 maintaining aspect ratio (do this in grayscale
+        # BEFORE converting to 1-bit to avoid thumbnail/resize artifacts on bw)
+        pil_crop.thumbnail((68, 68), Image.NEAREST)
+
+        # Flip horizontally so dragon faces right
+        pil_crop = pil_crop.transpose(Image.FLIP_LEFT_RIGHT)
 
         # Convert to 1-bit with threshold
-        bw = pil_crop.point(lambda x: 0 if x < 128 else 255, "1")
-
-        # Resize to fit in 69x68 maintaining aspect ratio
-        bw.thumbnail((69, 68), Image.NEAREST)
+        bw = pil_crop.point(lambda x: 0 if x < 128 else 1, "1")
 
         # Center in 69x68 canvas (white background)
         canvas = new_image(69, 68)
