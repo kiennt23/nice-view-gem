@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 """
-Generate dragon pixel art based on user-provided inspiration image.
+Generate dragon pixel art from user-provided hand-drawn sprites.
 
-Uses the 68x68 pixel art dragon as a base, with minimal expression overlays.
-Neutral uses the inspiration as-is. Other expressions add small overlays.
+User provides:
+- neutral.jpg       -> layer_art_0
+- glasses.jpg       -> layer_art_1
+- raised-brows.jpg  -> layer_art_2
+
+We generate from neutral base:
+- fierce  (angry eyebrows + fangs) -> layer_art_3
+- sleepy  (closed eyes + Zzz)      -> layer_art_default
 
 Outputs:
 - assets/peripheral_art/  (6 animation frames, 69x68)
@@ -23,7 +29,6 @@ except ImportError:
 SCRIPT_DIR = Path(__file__).parent
 PROJECT_DIR = SCRIPT_DIR.parent
 ASSETS_DIR = PROJECT_DIR / "assets"
-INSPIRATION = PROJECT_DIR / "bOqi27WXAid9iP1f6iJw--0--1kZfg.jpg"
 
 
 def ensure_dirs():
@@ -35,45 +40,13 @@ def new_image(w, h):
     return Image.new("1", (w, h), 1)
 
 
-def load_base_dragon():
-    """Load and clean the inspiration dragon to 68x68 line art."""
-    import numpy as np
-
-    img = Image.open(INSPIRATION).convert("L")
-    arr = np.array(img)
-
-    # Crop to center
-    h, w = arr.shape
-    crop_top = int(h * 0.08)
-    crop_bottom = int(h * 0.92)
-    crop_left = int(w * 0.05)
-    crop_right = int(w * 0.95)
-    cropped = arr[crop_top:crop_bottom, crop_left:crop_right]
-
-    # Find tight bbox of dark pixels
-    mask = cropped < 180
-    ys, xs = np.where(mask)
-    left, top = xs.min(), ys.min()
-    right, bottom = xs.max(), ys.max()
-    dragon = cropped[top:bottom, left:right]
-
-    # Downscale to 68x68
-    pil_dragon = Image.fromarray(dragon)
-    scaled = pil_dragon.resize((68, 68), Image.NEAREST)
-    sarr = np.array(scaled)
-
-    # Threshold: keep only dark pixels (black outlines)
-    bw = (sarr < 80).astype(np.uint8)
-
-    # Remove isolated noise pixels
-    for y in range(1, 67):
-        for x in range(1, 67):
-            if bw[y, x] == 1:
-                neighbors = bw[y - 1 : y + 2, x - 1 : x + 2].sum() - 1
-                if neighbors < 2:
-                    bw[y, x] = 0
-
-    return Image.fromarray((1 - bw) * 255).convert("1")
+def process_sprite(path, size=68):
+    """Load a user-provided sprite, downscale to size×size, clean up."""
+    img = Image.open(path).convert("L")
+    # Downscale with nearest neighbor to preserve hard pixel edges
+    small = img.resize((size, size), Image.NEAREST)
+    # Threshold: dark pixels become black (0), light become white (1)
+    return small.point(lambda x: 0 if x < 128 else 1, "1")
 
 
 def fill_circle(draw, cx, cy, r, fill):
@@ -94,89 +67,58 @@ def draw_line(draw, x1, y1, x2, y2, width, fill):
                 draw.point((int(px + wx), int(py + wy)), fill=fill)
 
 
-def create_expression(base, expression):
-    """Create an expression variant from the base dragon."""
+def create_fierce(base):
+    """Angry eyebrows + fangs on neutral base."""
     img = base.copy()
     draw = ImageDraw.Draw(img)
 
-    if expression == "neutral":
-        # Use inspiration as-is
-        pass
+    # Angry eyebrows (thick angled lines above eyes)
+    # Left eyebrow
+    for dx in range(-10, 3):
+        y_base = 20 + abs(dx + 4) // 2
+        draw.point((14 + dx, y_base), fill=0)
+        draw.point((14 + dx, y_base + 1), fill=0)
+    # Right eyebrow
+    for dx in range(-2, 11):
+        y_base = 20 + abs(dx - 4) // 2
+        draw.point((36 + dx, y_base), fill=0)
+        draw.point((36 + dx, y_base + 1), fill=0)
 
-    elif expression == "alert":
-        # Glasses — thin outline circles at exact eye centers
-        # Left eye center ~ (23, 26)
-        for y in range(20, 33):
-            for x in range(17, 30):
-                dx, dy = x - 23, y - 26
-                d = dx * dx + dy * dy
-                if 12 <= d <= 20:
-                    draw.point((x, y), fill=0)
-        # Right eye center ~ (41, 27)
-        for y in range(21, 34):
-            for x in range(35, 48):
-                dx, dy = x - 41, y - 27
-                d = dx * dx + dy * dy
-                if 12 <= d <= 20:
-                    draw.point((x, y), fill=0)
-        # Bridge
-        draw_line(draw, 28, 26, 36, 27, 1, fill=0)
-        # Serious mouth — small flat line over the smile center only
-        for x in range(34, 46):
-            for y in range(38, 42):
-                draw.point((x, y), fill=1)
-        draw_line(draw, 34, 40, 46, 40, 2, fill=0)
+    # Fangs mouth — erase smile center, draw W shape
+    for x in range(30, 48):
+        for y in range(38, 44):
+            draw.point((x, y), fill=1)
+    pts = [(32, 38), (35, 44), (38, 38), (41, 44), (44, 38)]
+    for i in range(len(pts) - 1):
+        draw_line(draw, pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], 2, fill=0)
 
-    elif expression == "surprised":
-        # Raised eyebrows
-        draw_line(draw, 14, 18, 26, 14, 2, fill=0)
-        draw_line(draw, 34, 14, 46, 18, 2, fill=0)
-        # Open mouth (small O, draw over smile)
-        for x in range(34, 44):
-            for y in range(36, 46):
-                draw.point((x, y), fill=1)
-        fill_circle(draw, 39, 41, 3, fill=0)
-        fill_circle(draw, 39, 41, 1, fill=1)
+    return img
 
-    elif expression == "fierce":
-        # Angry eyebrows (angled down, thick)
-        for dx in range(-10, 3):
-            y_base = 20 + abs(dx + 4) // 2
-            draw.point((16 + dx, y_base), fill=0)
-            draw.point((16 + dx, y_base + 1), fill=0)
-        for dx in range(-2, 11):
-            y_base = 20 + abs(dx - 4) // 2
-            draw.point((38 + dx, y_base), fill=0)
-            draw.point((38 + dx, y_base + 1), fill=0)
-        # Fangs mouth (draw over smile)
-        for x in range(30, 48):
-            for y in range(36, 46):
-                draw.point((x, y), fill=1)
-        pts = [(32, 38), (35, 44), (38, 38), (41, 44), (44, 38)]
-        for i in range(len(pts) - 1):
-            draw_line(draw, pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], 2, fill=0)
 
-    elif expression == "sleepy":
-        # Closed eyes (curved white lines drawn over original eyes)
-        # Left eye
-        for t in range(-6, 7):
-            y_off = abs(t) // 3
-            draw.point((22 + t, 29 + y_off), fill=1)
-            draw.point((22 + t, 28 + y_off), fill=1)
-        # Right eye
-        for t in range(-6, 7):
-            y_off = abs(t) // 3
-            draw.point((40 + t, 29 + y_off), fill=1)
-            draw.point((40 + t, 28 + y_off), fill=1)
-        # Zzz
-        zx, zy = 48, 12
-        draw_line(draw, zx, zy, zx + 4, zy, 1, fill=0)
-        draw_line(draw, zx + 4, zy, zx, zy - 4, 1, fill=0)
-        draw_line(draw, zx, zy - 4, zx + 4, zy - 4, 1, fill=0)
-        # Smaller Z
-        draw_line(draw, zx + 6, zy - 6, zx + 9, zy - 6, 1, fill=0)
-        draw_line(draw, zx + 9, zy - 6, zx + 6, zy - 9, 1, fill=0)
-        draw_line(draw, zx + 6, zy - 9, zx + 9, zy - 9, 1, fill=0)
+def create_sleepy(base):
+    """Closed eyes + Zzz on neutral base."""
+    img = base.copy()
+    draw = ImageDraw.Draw(img)
+
+    # Closed eyes (curved white lines over original eyes)
+    for t in range(-6, 7):
+        y_off = abs(t) // 3
+        draw.point((22 + t, 29 + y_off), fill=1)
+        draw.point((22 + t, 28 + y_off), fill=1)
+    for t in range(-6, 7):
+        y_off = abs(t) // 3
+        draw.point((40 + t, 29 + y_off), fill=1)
+        draw.point((40 + t, 28 + y_off), fill=1)
+
+    # Zzz
+    zx, zy = 48, 12
+    draw_line(draw, zx, zy, zx + 4, zy, 1, fill=0)
+    draw_line(draw, zx + 4, zy, zx, zy - 4, 1, fill=0)
+    draw_line(draw, zx, zy - 4, zx + 4, zy - 4, 1, fill=0)
+    # Smaller Z
+    draw_line(draw, zx + 6, zy - 6, zx + 9, zy - 6, 1, fill=0)
+    draw_line(draw, zx + 9, zy - 6, zx + 6, zy - 9, 1, fill=0)
+    draw_line(draw, zx + 6, zy - 9, zx + 9, zy - 9, 1, fill=0)
 
     return img
 
@@ -255,16 +197,25 @@ def draw_peripheral_dragon(draw, frame, width=69, height=68):
             draw.point((sx + dx, sy + dy), fill=0)
 
 
-def generate_layer_faces(base):
-    expressions = {
-        "layer_art_0": "neutral",
-        "layer_art_1": "alert",
-        "layer_art_2": "surprised",
-        "layer_art_3": "fierce",
-        "layer_art_default": "sleepy",
+def generate_layer_faces():
+    # Process user-provided sprites
+    neutral = process_sprite(PROJECT_DIR / "neutral.jpg")
+    glasses = process_sprite(PROJECT_DIR / "glasses.jpg")
+    raised = process_sprite(PROJECT_DIR / "raised-brows.jpg")
+
+    # Generate fierce and sleepy from neutral base
+    fierce = create_fierce(neutral)
+    sleepy = create_sleepy(neutral)
+
+    sprites = {
+        "layer_art_0": neutral,
+        "layer_art_1": glasses,
+        "layer_art_2": raised,
+        "layer_art_3": fierce,
+        "layer_art_default": sleepy,
     }
-    for name, expr in expressions.items():
-        img = create_expression(base, expr)
+
+    for name, img in sprites.items():
         png_path = ASSETS_DIR / "layer_art" / f"{name}.png"
         img.save(png_path)
         print(f"Generated {png_path}")
@@ -296,17 +247,10 @@ def convert_all():
 
 def main():
     ensure_dirs()
-    print("Loading base dragon from inspiration...")
-    base = load_base_dragon()
-    base.save(ASSETS_DIR / "layer_art" / "base_dragon.png")
-    print(f"Base dragon saved to {ASSETS_DIR / 'layer_art' / 'base_dragon.png'}")
-
-    print("\nGenerating expression variants...")
-    generate_layer_faces(base)
-
+    print("Processing user-provided sprites...")
+    generate_layer_faces()
     print("\nGenerating peripheral frames...")
     generate_peripheral_frames()
-
     print("\nConverting to LVGL C arrays...")
     convert_all()
     print("\nDone! All assets generated.")
