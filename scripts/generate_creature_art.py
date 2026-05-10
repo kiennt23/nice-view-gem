@@ -73,7 +73,7 @@ def generate_layer_faces():
 
 def generate_peripheral_frames():
     """Slice flying.jpg (6 frames, 3x2 grid, 816x816) into individual 69x68 frames."""
-    sheet = Image.open(PROJECT_DIR / "flying.jpg").convert("L")
+    sheet = Image.open(PROJECT_DIR / "flying2.jpg").convert("L")
     arr = np.array(sheet)
     rows, cols = 2, 3
     cell_h = arr.shape[0] // rows
@@ -132,7 +132,7 @@ def main():
     ensure_dirs()
     print("Processing user-provided sprites...")
     generate_layer_faces()
-    print("\nGenerating peripheral frames from flying.jpg...")
+    print("\nGenerating peripheral frames from flying2.jpg...")
     generate_peripheral_frames()
     print("\nConverting to LVGL C arrays...")
     convert_all()
