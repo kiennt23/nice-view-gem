@@ -104,23 +104,28 @@ def create_expression(base, expression):
         pass
 
     elif expression == "alert":
-        # Add glasses frames over the eyes
-        # Left eye glasses
-        fill_circle(draw, 22, 28, 7, fill=0)
-        fill_circle(draw, 22, 28, 5, fill=1)
-        # Right eye glasses
-        fill_circle(draw, 40, 28, 7, fill=0)
-        fill_circle(draw, 40, 28, 5, fill=1)
+        # Glasses — thin outline circles at exact eye centers
+        # Left eye center ~ (23, 26)
+        for y in range(20, 33):
+            for x in range(17, 30):
+                dx, dy = x - 23, y - 26
+                d = dx * dx + dy * dy
+                if 12 <= d <= 20:
+                    draw.point((x, y), fill=0)
+        # Right eye center ~ (41, 27)
+        for y in range(21, 34):
+            for x in range(35, 48):
+                dx, dy = x - 41, y - 27
+                d = dx * dx + dy * dy
+                if 12 <= d <= 20:
+                    draw.point((x, y), fill=0)
         # Bridge
-        draw_line(draw, 29, 28, 33, 28, 1, fill=0)
-        # Temple arms
-        draw_line(draw, 15, 28, 17, 28, 1, fill=0)
-        draw_line(draw, 45, 28, 47, 28, 1, fill=0)
-        # Serious mouth (draw over smile)
-        for x in range(30, 46):
-            for y in range(38, 44):
+        draw_line(draw, 28, 26, 36, 27, 1, fill=0)
+        # Serious mouth — small flat line over the smile center only
+        for x in range(34, 46):
+            for y in range(38, 42):
                 draw.point((x, y), fill=1)
-        draw_line(draw, 32, 40, 44, 40, 2, fill=0)
+        draw_line(draw, 34, 40, 46, 40, 2, fill=0)
 
     elif expression == "surprised":
         # Raised eyebrows
