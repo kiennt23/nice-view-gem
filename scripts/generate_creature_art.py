@@ -6,10 +6,9 @@ User provides:
 - neutral.jpg       -> layer_art_0
 - glasses.jpg       -> layer_art_1
 - raised-brows.jpg  -> layer_art_2
-
-We generate from neutral base:
-- fierce  (angry eyebrows + fangs) -> layer_art_3
-- sleepy  (closed eyes + Zzz)      -> layer_art_default
+- angry.jpg         -> layer_art_3
+- sleepy.jpg        -> layer_art_default
+- flying.jpg        -> peripheral_art_00..05 (6 frames, 3x2 grid)
 
 Outputs:
 - assets/peripheral_art/  (6 animation frames, 69x68)
@@ -22,8 +21,9 @@ from pathlib import Path
 
 try:
     from PIL import Image, ImageDraw
+    import numpy as np
 except ImportError:
-    print("Error: Pillow is required. Install with: pip install Pillow")
+    print("Error: Pillow and numpy are required. Install with: pip install Pillow numpy")
     sys.exit(1)
 
 SCRIPT_DIR = Path(__file__).parent
@@ -49,161 +49,11 @@ def process_sprite(path, size=68):
     return small.point(lambda x: 0 if x < 128 else 1, "1")
 
 
-def fill_circle(draw, cx, cy, r, fill):
-    for y in range(cy - r - 1, cy + r + 2):
-        for x in range(cx - r - 1, cx + r + 2):
-            if (x - cx) ** 2 + (y - cy) ** 2 <= r * r:
-                draw.point((x, y), fill=fill)
-
-
-def draw_line(draw, x1, y1, x2, y2, width, fill):
-    dx, dy = x2 - x1, y2 - y1
-    steps = int(max(abs(dx), abs(dy)) * 2) + 1
-    for i in range(steps):
-        t = i / steps
-        px, py = x1 + dx * t, y1 + dy * t
-        for wy in range(-width // 2, width // 2 + 1):
-            for wx in range(-width // 2, width // 2 + 1):
-                draw.point((int(px + wx), int(py + wy)), fill=fill)
-
-
-def create_fierce(base):
-    """Angry eyebrows + fangs on neutral base."""
-    img = base.copy()
-    draw = ImageDraw.Draw(img)
-
-    # Angry eyebrows (thick angled lines above eyes)
-    # Left eyebrow
-    for dx in range(-10, 3):
-        y_base = 20 + abs(dx + 4) // 2
-        draw.point((14 + dx, y_base), fill=0)
-        draw.point((14 + dx, y_base + 1), fill=0)
-    # Right eyebrow
-    for dx in range(-2, 11):
-        y_base = 20 + abs(dx - 4) // 2
-        draw.point((36 + dx, y_base), fill=0)
-        draw.point((36 + dx, y_base + 1), fill=0)
-
-    # Fangs mouth — erase smile center, draw W shape
-    for x in range(30, 48):
-        for y in range(38, 44):
-            draw.point((x, y), fill=1)
-    pts = [(32, 38), (35, 44), (38, 38), (41, 44), (44, 38)]
-    for i in range(len(pts) - 1):
-        draw_line(draw, pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1], 2, fill=0)
-
-    return img
-
-
-def create_sleepy(base):
-    """Closed eyes + Zzz on neutral base."""
-    img = base.copy()
-    draw = ImageDraw.Draw(img)
-
-    # Closed eyes (curved white lines over original eyes)
-    for t in range(-6, 7):
-        y_off = abs(t) // 3
-        draw.point((22 + t, 29 + y_off), fill=1)
-        draw.point((22 + t, 28 + y_off), fill=1)
-    for t in range(-6, 7):
-        y_off = abs(t) // 3
-        draw.point((40 + t, 29 + y_off), fill=1)
-        draw.point((40 + t, 28 + y_off), fill=1)
-
-    # Zzz
-    zx, zy = 48, 12
-    draw_line(draw, zx, zy, zx + 4, zy, 1, fill=0)
-    draw_line(draw, zx + 4, zy, zx, zy - 4, 1, fill=0)
-    draw_line(draw, zx, zy - 4, zx + 4, zy - 4, 1, fill=0)
-    # Smaller Z
-    draw_line(draw, zx + 6, zy - 6, zx + 9, zy - 6, 1, fill=0)
-    draw_line(draw, zx + 9, zy - 6, zx + 6, zy - 9, 1, fill=0)
-    draw_line(draw, zx + 6, zy - 9, zx + 9, zy - 9, 1, fill=0)
-
-    return img
-
-
-def draw_peripheral_dragon(draw, frame, width=69, height=68):
-    """Small simplified flying dragon for peripheral animation."""
-    bob = [0, -2, -3, -2, 0, 1][frame]
-    cx, cy = width // 2, height // 2 + 6 + bob
-
-    # Head
-    fill_circle(draw, cx, cy - 6, 10, fill=0)
-    # Snout
-    fill_circle(draw, cx + 8, cy - 4, 5, fill=0)
-    # Horns
-    draw_line(draw, cx - 6, cy - 14, cx - 10, cy - 20, 2, fill=0)
-    draw_line(draw, cx + 4, cy - 14, cx + 8, cy - 20, 2, fill=0)
-    # Frills
-    frills = [(cx - 10, cy - 8), (cx - 12, cy - 4), (cx - 10, cy)]
-    for i in range(len(frills) - 1):
-        draw_line(draw, frills[i][0], frills[i][1], frills[i + 1][0], frills[i + 1][1], 2, fill=0)
-
-    # Body
-    fill_circle(draw, cx + 1, cy + 6, 9, fill=0)
-
-    # Belly scales
-    for bx in range(cx - 4, cx + 6, 4):
-        for by in range(cy + 4, cy + 12, 4):
-            draw.point((bx, by), fill=1)
-
-    # Wings (animated)
-    wing_y = [-6, -3, 0, -2, -5, -3][frame]
-    wing_l = [(cx - 6, cy), (cx - 16, cy + wing_y - 2), (cx - 14, cy + wing_y + 5), (cx - 6, cy + 3)]
-    for i in range(len(wing_l) - 1):
-        draw_line(draw, wing_l[i][0], wing_l[i][1], wing_l[i + 1][0], wing_l[i + 1][1], 2, fill=0)
-    wing_r = [(cx + 6, cy), (cx + 16, cy + wing_y - 2), (cx + 14, cy + wing_y + 5), (cx + 6, cy + 3)]
-    for i in range(len(wing_r) - 1):
-        draw_line(draw, wing_r[i][0], wing_r[i][1], wing_r[i + 1][0], wing_r[i + 1][1], 2, fill=0)
-
-    # Tail
-    tail_wave = [0, 1, 2, 1, 0, -1][frame]
-    tail_pts = [(cx + 7, cy + 10), (cx + 14, cy + 14 + tail_wave), (cx + 12, cy + 20)]
-    for i in range(len(tail_pts) - 1):
-        draw_line(draw, tail_pts[i][0], tail_pts[i][1], tail_pts[i + 1][0], tail_pts[i + 1][1], 2, fill=0)
-
-    # Legs
-    fill_circle(draw, cx - 3, cy + 12, 3, fill=0)
-    fill_circle(draw, cx + 5, cy + 12, 3, fill=0)
-
-    # Eye
-    fill_circle(draw, cx - 1, cy - 7, 4, fill=1)
-    fill_circle(draw, cx, cy - 7, 1, fill=0)
-    fill_circle(draw, cx - 3, cy - 9, 1, fill=1)
-
-    # Smile
-    for t in range(-2, 3):
-        y_off = (t * t) // 4
-        draw.point((cx + 7 + t, cy - 2 + y_off), fill=1)
-
-    # Fire puffs
-    if frame in (1, 2, 4):
-        fx, fy = cx + 12, cy - 2 + frame
-        fill_circle(draw, fx, fy, 2, fill=0)
-        draw.point((fx + 2, fy + 1), fill=0)
-
-    # Sparkles
-    sparkles = [
-        [(12, 10), (56, 16), (32, 6)],
-        [(14, 8), (54, 18), (30, 4)],
-        [(10, 12), (58, 14), (34, 8)],
-        [(12, 10), (56, 16), (32, 6)],
-        [(16, 8), (52, 20), (28, 10)],
-        [(12, 12), (56, 14), (32, 6)],
-    ]
-    for sx, sy in sparkles[frame]:
-        for dx, dy in [(0, 0), (-1, 0), (1, 0), (0, -1), (0, 1)]:
-            draw.point((sx + dx, sy + dy), fill=0)
-
-
 def generate_layer_faces():
     # Process user-provided sprites
     neutral = process_sprite(PROJECT_DIR / "neutral.jpg")
     glasses = process_sprite(PROJECT_DIR / "glasses.jpg")
     raised = process_sprite(PROJECT_DIR / "raised-brows.jpg")
-
-    # Process remaining user-provided sprites
     fierce = process_sprite(PROJECT_DIR / "angry.jpg")
     sleepy = process_sprite(PROJECT_DIR / "sleepy.jpg")
 
@@ -222,12 +72,45 @@ def generate_layer_faces():
 
 
 def generate_peripheral_frames():
-    for i in range(6):
-        img = new_image(69, 68)
-        draw = ImageDraw.Draw(img)
-        draw_peripheral_dragon(draw, i, width=69, height=68)
-        png_path = ASSETS_DIR / "peripheral_art" / f"peripheral_art_{i:02d}.png"
-        img.save(png_path)
+    """Slice flying.jpg (6 frames, 3x2 grid, 816x816) into individual 69x68 frames."""
+    sheet = Image.open(PROJECT_DIR / "flying.jpg").convert("L")
+    arr = np.array(sheet)
+    rows, cols = 2, 3
+    cell_h = arr.shape[0] // rows
+    cell_w = arr.shape[1] // cols
+
+    for idx in range(6):
+        row = idx // cols
+        col = idx % cols
+        y1 = row * cell_h
+        y2 = (row + 1) * cell_h
+        x1 = col * cell_w
+        x2 = (col + 1) * cell_w
+        cell = arr[y1:y2, x1:x2]
+
+        # Find bounding box of dark pixels
+        mask = cell < 128
+        if mask.any():
+            ys, xs = np.where(mask)
+            by1, by2 = ys.min(), ys.max() + 1
+            bx1, bx2 = xs.min(), xs.max() + 1
+            cropped = cell[by1:by2, bx1:bx2]
+        else:
+            cropped = cell
+
+        # Convert to PIL and resize to fit in 69x68 maintaining aspect ratio
+        pil_crop = Image.fromarray(cropped)
+        pil_crop.thumbnail((69, 68), Image.NEAREST)
+
+        # Center in 69x68 canvas (white background)
+        canvas = new_image(69, 68)
+        ox = (69 - pil_crop.size[0]) // 2
+        oy = (68 - pil_crop.size[1]) // 2
+        bw = pil_crop.point(lambda x: 0 if x < 128 else 1, "1")
+        canvas.paste(bw, (ox, oy))
+
+        png_path = ASSETS_DIR / "peripheral_art" / f"peripheral_art_{idx:02d}.png"
+        canvas.save(png_path)
         print(f"Generated {png_path}")
 
 
@@ -249,7 +132,7 @@ def main():
     ensure_dirs()
     print("Processing user-provided sprites...")
     generate_layer_faces()
-    print("\nGenerating peripheral frames...")
+    print("\nGenerating peripheral frames from flying.jpg...")
     generate_peripheral_frames()
     print("\nConverting to LVGL C arrays...")
     convert_all()
