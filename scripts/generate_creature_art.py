@@ -168,8 +168,10 @@ def generate_peripheral_frames():
         # BEFORE converting to 1-bit to avoid thumbnail/resize artifacts on bw)
         pil_crop.thumbnail((68, 68), Image.NEAREST)
 
-        # Flip horizontally so dragon faces right
-        pil_crop = pil_crop.transpose(Image.FLIP_LEFT_RIGHT)
+        # Rotate 90° CW so dragon faces DOWN in source image.
+        # The peripheral canvas is rotated 270° (LV_DISPLAY_ROTATION_270),
+        # so DOWN in source becomes RIGHT on the physical display.
+        pil_crop = pil_crop.transpose(Image.ROTATE_270)
 
         # Convert to 1-bit with threshold
         bw = pil_crop.point(lambda x: 0 if x < 128 else 1, "1")
