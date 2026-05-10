@@ -203,9 +203,9 @@ def generate_layer_faces():
     glasses = process_sprite(PROJECT_DIR / "glasses.jpg")
     raised = process_sprite(PROJECT_DIR / "raised-brows.jpg")
 
-    # Process user-provided fierce, generate sleepy from neutral base
+    # Process remaining user-provided sprites
     fierce = process_sprite(PROJECT_DIR / "angry.jpg")
-    sleepy = create_sleepy(neutral)
+    sleepy = process_sprite(PROJECT_DIR / "sleepy.jpg")
 
     sprites = {
         "layer_art_0": neutral,
